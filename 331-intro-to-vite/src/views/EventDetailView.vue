@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, defineProps } from 'vue'
-import type Event from '@/types/Event'
+import type { Event } from '@/types'
 import EventService from '@/services/EventService'
 
 const props = defineProps<{ id: string }>()
@@ -10,7 +10,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 
 onMounted(() => {
-  EventService.getEvent(Number(props.id))
+  EventService.getEvent(parseInt(props.id))
     .then((response) => {
       event.value = response.data
       loading.value = false

@@ -1,34 +1,98 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import type Event from '@/types/Event'
-import EventService from '@/services/EventService'
 import EventCard from '@/components/EventCard.vue'
+import EventMeta from '@/components/EventMeta.vue'
+import { type Event } from '@/types'
+import { ref, computed, watchEffect } from 'vue'
+import EventService from '@/services/EventService'
 
-const events = ref<Event[]>([])
-const loading = ref(true)
-const error = ref<string | null>(null)
+const events = ref<Event[] | null>(null)
+const totalEvents = ref(0)
 
-onMounted(() => {
-  EventService.getEvents()
+const props = defineProps<{ page: number; perPage?: number }>()
+const page = computed(() => props.page)
+const perPage = computed(() => props.perPage ?? 2)
+
+const hasNexPage = computed(() => {
+  const totalPages = Math.ceil(totalEvents.value / perPage.value)
+  return page.value < totalPages
+})
+
+watchEffect(() => {
+  events.value = null
+  EventService.getEvents(perPage.value, page.value)
     .then((response) => {
       events.value = response.data
-      loading.value = false
+      totalEvents.value = Number(response.headers['x-total-count'] || 0)
     })
-    .catch((err) => {
-      error.value = '加载事件失败，请检查 Mock 服务是否在 3000 端口运行。'
-      console.error('There was an error!', err)
-      loading.value = false
+    .catch((error) => {
+      console.error('There was an error!', error)
     })
 })
 </script>
 
 <template>
-  <div class="event-list">
-    <h1>Events</h1>
-    <div v-if="loading">正在加载事件...</div>
-    <div v-else-if="error">{{ error }}</div>
-    <div v-else>
-      <EventCard v-for="evt in events" :key="evt.id" :event="evt" />
+  <h1>Events For Good <span v-if="events">({{ events.length }})</span></h1>
+  <div class="events">
+    <div v-for="event in (events || [])" :key="event.id">
+      <EventCard :event="event" />
+      <EventMeta :event="event" />
+    </div>
+
+    <div class="pagination">
+      <RouterLink
+        id="page-prev"
+        :to="{ name: 'event-list-view', query: { page: page - 1, perPage: perPage } }"
+        rel="prev"
+        v-if="page != 1"
+        >&#60; Prev Page</RouterLink
+      >
+
+      <RouterLink
+        id="page-next"
+        :to="{ name: 'event-list-view', query: { page: page + 1, perPage: perPage } }"
+        rel="next"
+        v-if="hasNexPage"
+        >Next Page &#62;</RouterLink
+      >
+    </div>
+
+    <div class="page-size">
+      Page size:
+      <RouterLink :to="{ name: 'event-list-view', query: { page: 1, perPage: 2 } }">2</RouterLink>
+      |
+      <RouterLink :to="{ name: 'event-list-view', query: { page: 1, perPage: 3 } }">3</RouterLink>
+      |
+      <RouterLink :to="{ name: 'event-list-view', query: { page: 1, perPage: 5 } }">5</RouterLink>
     </div>
   </div>
 </template>
+
+<style scoped>
+.events {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.pagination {
+  display: flex;
+  width: 290px;
+}
+.pagination a {
+  flex: 1;
+  text-decoration: none;
+  color: #2c3e50;
+}
+#page-prev {
+  text-align: left;
+}
+#page-next {
+  text-align: right;
+}
+.page-size {
+  margin-top: 12px;
+}
+.page-size a {
+  text-decoration: none;
+  color: #2c3e50;
+}
+</style>
